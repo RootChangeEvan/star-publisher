@@ -22,6 +22,7 @@
     --radius: 10px;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body {
     margin: 0; background: var(--paper); color: var(--ink);
     font-family: 'Public Sans', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
@@ -99,6 +100,12 @@
   ol.progress { list-style: none; padding: 0; margin: 12px 0 0; }
   ol.progress li { padding: 6px 0; display: flex; gap: 10px; }
   ol.progress .s { width: 20px; flex: none; text-align: center; }
+  .summary { margin-top: 16px; border-radius: 8px; padding: 16px 18px; }
+  .summary.ok { background: var(--sage-soft); }
+  .summary.err { background: var(--brick-soft); color: #5E1E17; }
+  .summary h3 { margin: 0 0 8px; font-size: 20px; }
+  .summary ul { margin: 0; padding-left: 20px; }
+  .summary li { margin: 3px 0; }
   .next { margin-top: 16px; padding: 14px 16px; border-left: 4px solid var(--sage); background: var(--sage-soft); border-radius: 0 8px 8px 0; }
   .next ol { margin: 6px 0 0; padding-left: 20px; }
 
@@ -182,7 +189,7 @@
       <label for="message">What changed?</label>
       <textarea id="message" placeholder="For example: Fixed the tooltip flicker on the dashboard" oninput="updatePublishButton()"></textarea>
       <p class="hint">This note is saved with the file, so anyone can later see why it changed.</p>
-      <label class="check"><input type="checkbox" id="add-changelog" checked> Add this note to the project's changelog</label>
+      <label class="check" id="changelog-wrap"><input type="checkbox" id="add-changelog" checked> Add this note to the project's changelog</label>
       <label class="check" id="live-wrap" hidden><input type="checkbox" id="update-live" checked> <span id="live-label">Also update the live site</span></label>
       <div class="row">
         <button class="btn primary" id="publish-btn" disabled onclick="publish()">Publish</button>
@@ -257,11 +264,12 @@ const DESTINATIONS = [
   { id: 'bot',       label: 'Chatbot (drn-chat)',          path: 'backend/supabase/functions/drn-chat/index.ts', kind: 'bot', download: 'drn-chat-index.ts', match: /drn-chat/i },
   { id: 'schema',    label: 'Database definition',         path: 'backend/supabase/schema.sql',    kind: 'file', download: 'schema.sql',           match: /schema.*\.sql$/i },
   { id: 'changelog', label: 'Changelog',                   path: 'CHANGELOG.md',                    kind: 'file', download: 'CHANGELOG.md',         match: /^changelog/i },
+  { id: 'publisher', label: 'This Publisher tool',         path: 'tools/star-publisher.html',       kind: 'site', download: 'star-publisher.html',  match: /star-publisher/i },
   { id: 'readme',    label: 'README',                      path: 'README.md',                       kind: 'file', download: 'README.md',            match: /^readme/i },
   { id: 'other',     label: 'Somewhere else (type the folder and name)', path: '', kind: 'file' },
 ];
 
-const DEFAULT_LIVE = { dashboard: '', admin: '', weekly: 'crp-drn-weekly-form-27', crt: 'crt-monthly-form' };
+const DEFAULT_LIVE = { dashboard: '', admin: '', weekly: 'crp-drn-weekly-form-27', crt: 'crt-monthly-form', publisher: 'star-publisher' };
 const SETTINGS_KEY = 'star_publisher_settings';
 const TOKEN_KEY = 'gh_deploy_token';   // same key as the original Pages Deployer, so a saved token is reused
 
@@ -430,6 +438,7 @@ function onDestChange() {
     destBox.hidden = false;
   } else destBox.hidden = true;
 
+  document.getElementById('changelog-wrap').hidden = state.path === 'CHANGELOG.md';
   const liveRepo = d && d.kind === 'site' ? settings.live[d.id] : '';
   const liveWrap = document.getElementById('live-wrap');
   liveWrap.hidden = !liveRepo;
@@ -540,6 +549,7 @@ async function publish() {
   } catch (e) {
     step('save', 'err', escapeHtml(explain(e, settings.owner + '/' + settings.repo)));
     steps.filter(s => s.key !== 'save').forEach(s => step(s.key, 'skip', 'Skipped because the save didn\'t go through.'));
+    out.insertAdjacentHTML('afterbegin', '<div class="summary err"><h3>Not published</h3>Nothing was changed. The reason is below.</div>');
     btn.disabled = false; return;
   }
 
@@ -576,7 +586,22 @@ async function publish() {
     }
   }
 
+  const logStep = steps.find(s => s.key === 'log');
+  const logText = state.path === 'CHANGELOG.md' ? 'Changelog: not needed, this file is the changelog.'
+    : !logStep ? 'Changelog: not added (you unticked it).'
+    : logStep.status === 'ok' ? 'Changelog: note added.' : 'Changelog: couldn\'t add the note (see above).';
+  const hasLive = d && d.kind === 'site' && settings.live[d.id];
+  const liveText = !(d && d.kind === 'site') ? 'Live site: none for this kind of file.'
+    : !hasLive ? 'Live site: not set up for ' + d.label + ' in Settings, so not updated.'
+    : !liveRepo ? 'Live site: not updated (you unticked it).'
+    : liveOk ? 'Live site: updated. Give it a minute or two, then refresh <a href="' + liveUrl + '" target="_blank" rel="noopener">' + liveUrl + '</a>.'
+    : 'Live site: not updated (see above).';
+  out.insertAdjacentHTML('afterbegin', '<div class="summary ok"><h3>Published</h3><ul>' +
+    '<li>Saved to the project as <strong>' + escapeHtml(state.path) + '</strong>' + (fileUrl ? ' (<a href="' + fileUrl + '" target="_blank" rel="noopener">see it on GitHub</a>)' : '') + '.</li>' +
+    '<li>' + logText + '</li><li>' + liveText + '</li></ul></div>');
   out.insertAdjacentHTML('beforeend', nextSteps(d, liveRepo, liveOk));
+  const sum = out.querySelector('.summary');
+  if (sum && sum.scrollIntoView) sum.scrollIntoView({ behavior: 'smooth', block: 'center' });
   toast('Published');
   // Re-check, so a second click can't publish against an out-of-date copy.
   state.canPublish = false; updatePublishButton();
