@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STAR Project Publisher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1F2B3D;
+    --muted: #5B6676;
+    --paper: #F3F5F4;
+    --card: #FFFFFF;
+    --line: #D6DDD9;
+    --sage: #2F6F5E;
+    --sage-soft: #E4F0EB;
+    --amber: #8A5A0F;
+    --amber-soft: #FBF0DA;
+    --brick: #A53A2E;
+    --brick-soft: #F8E4E1;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: 'Public Sans', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+    font-size: 16px; line-height: 1.55;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 40px 20px 80px; }
+  a { color: var(--sage); }
+  :focus-visible { outline: 3px solid #7FB3A4; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+  header { margin-bottom: 28px; }
+  h1 { font-size: 30px; line-height: 1.2; margin: 0 0 6px; font-weight: 700; letter-spacing: -0.01em; }
+  .lede { color: var(--muted); margin: 0; max-width: 60ch; }
+  .project-line { margin-top: 14px; font-size: 14px; color: var(--muted); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #B9C2BE; display: inline-block; }
+  .dot.ok { background: var(--sage); }
+  .dot.bad { background: var(--brick); }
+  .linkish { background: none; border: none; padding: 0; color: var(--sage); font: inherit; text-decoration: underline; cursor: pointer; }
+
+  details.help { margin-top: 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 0 18px; }
+  details.help summary { cursor: pointer; padding: 12px 0; font-weight: 600; }
+  details.help div { padding-bottom: 14px; color: var(--ink); }
+  details.help dt { font-weight: 600; margin-top: 8px; }
+  details.help dd { margin: 0 0 4px; color: var(--muted); }
+
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 28px 0 22px; }
+  .tab { background: none; border: none; font: inherit; font-weight: 600; color: var(--muted); padding: 10px 14px; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--sage); }
+
+  section.panel[hidden] { display: none; }
+  .step { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 22px; margin-bottom: 14px; }
+  .step h2 { font-size: 17px; margin: 0 0 12px; display: flex; gap: 10px; align-items: baseline; }
+  .step h2 .n { color: var(--sage); font-weight: 700; }
+  .step.locked { opacity: .5; }
+  .step.locked * { pointer-events: none; }
+
+  .drop { border: 2px dashed var(--line); border-radius: var(--radius); padding: 26px; text-align: center; color: var(--muted); cursor: pointer; position: relative; }
+  .drop.over { border-color: var(--sage); background: var(--sage-soft); }
+  .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .chosen { margin-top: 10px; font-size: 14px; color: var(--muted); }
+
+  label { display: block; font-weight: 600; font-size: 14px; margin: 14px 0 6px; }
+  input[type=text], input[type=password], select, textarea {
+    width: 100%; font: inherit; font-size: 15px; color: var(--ink); background: #fff;
+    border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px;
+  }
+  textarea { min-height: 76px; resize: vertical; }
+  .hint { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+
+  /* The one bold element: where the file is going */
+  .destination { margin: 18px 0 4px; padding: 16px 18px; background: var(--paper); border-radius: 8px; }
+  .destination .label { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .path { font-size: 24px; font-weight: 700; line-height: 1.25; word-break: break-word; }
+  .path .sep { color: #A9B3AF; font-weight: 400; margin: 0 .18em; }
+  .path .file { color: var(--sage); }
+
+  .notice { border-radius: 8px; padding: 12px 14px; margin-top: 12px; font-size: 15px; }
+  .notice.info { background: var(--paper); }
+  .notice.ok { background: var(--sage-soft); }
+  .notice.warn { background: var(--amber-soft); color: #4A3305; }
+  .notice.err { background: var(--brick-soft); color: #5E1E17; }
+  .notice strong { display: block; margin-bottom: 2px; }
+  .counts { font-size: 15px; margin-top: 10px; }
+  .counts .add { color: var(--sage); font-weight: 600; }
+  .counts .rem { color: var(--brick); font-weight: 600; }
+
+  .check { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; font-size: 15px; font-weight: 400; }
+  .check input { margin-top: 5px; }
+
+  .btn { font: inherit; font-weight: 600; border-radius: 8px; padding: 10px 18px; cursor: pointer; border: 1px solid var(--line); background: #fff; color: var(--ink); }
+  .btn.primary { background: var(--sage); border-color: var(--sage); color: #fff; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 16px; }
+
+  ol.progress { list-style: none; padding: 0; margin: 12px 0 0; }
+  ol.progress li { padding: 6px 0; display: flex; gap: 10px; }
+  ol.progress .s { width: 20px; flex: none; text-align: center; }
+  .next { margin-top: 16px; padding: 14px 16px; border-left: 4px solid var(--sage); background: var(--sage-soft); border-radius: 0 8px 8px 0; }
+  .next ol { margin: 6px 0 0; padding-left: 20px; }
+
+  table.files { width: 100%; border-collapse: collapse; }
+  table.files td { padding: 12px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.files .name { font-weight: 600; }
+  table.files .meta { font-size: 13px; color: var(--muted); }
+  table.files .actions { text-align: right; white-space: nowrap; }
+  table.files .actions .btn { padding: 6px 12px; font-size: 14px; }
+
+  .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+  @media (max-width: 600px) { .settings-grid { grid-template-columns: 1fr; } .path { font-size: 20px; } }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Publish to the STAR project</h1>
+    <p class="lede">Puts a file in the right place in the project's GitHub repository, with a note about what changed, and can update the live site at the same time.</p>
+    <div class="project-line">
+      <span class="dot" id="conn-dot"></span>
+      <span id="conn-text">Not connected yet</span>
+      <button class="linkish" type="button" onclick="showTab('settings')">Settings</button>
+    </div>
+    <details class="help">
+      <summary>New to GitHub? Read this first</summary>
+      <div>
+        <dl>
+          <dt>Repository</dt>
+          <dd>The project's folder online. Ours holds every page, the backend code, and the docs.</dd>
+          <dt>Publishing (a "commit")</dt>
+          <dd>Saving a new version of a file there, with a short note about what changed. GitHub keeps every earlier version, so nothing is ever lost and any change can be undone.</dd>
+          <dt>Live site</dt>
+          <dd>The public web page people actually use. The project copy and the live site are separate: this tool can update both in one go.</dd>
+          <dt>Token</dt>
+          <dd>A password-like key that lets this page act on your behalf. It's created once in Settings and saved in this browser only.</dd>
+        </dl>
+      </div>
+    </details>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-publish" aria-selected="true" onclick="showTab('publish')">Publish a file</button>
+    <button class="tab" role="tab" id="tab-latest" aria-selected="false" onclick="showTab('latest')">Get the latest copy</button>
+    <button class="tab" role="tab" id="tab-settings" aria-selected="false" onclick="showTab('settings')">Settings</button>
+  </nav>
+
+  <!-- ============ PUBLISH ============ -->
+  <section class="panel" id="panel-publish">
+    <div class="step">
+      <h2><span class="n">1</span> Choose the file</h2>
+      <div class="drop" id="drop">
+        <input type="file" id="file-input" aria-label="Choose a file to publish">
+        Drop a file here, or click to choose one
+      </div>
+      <div class="chosen" id="chosen"></div>
+
+      <label for="dest">Where it goes in the project</label>
+      <select id="dest" onchange="onDestChange()"></select>
+      <div id="custom-wrap" hidden>
+        <label for="custom-path">Folder and file name</label>
+        <input type="text" id="custom-path" placeholder="docs/runbooks/my-new-runbook.md" oninput="onDestChange()">
+        <p class="hint">Use forward slashes. A new folder is created automatically if it doesn't exist.</p>
+      </div>
+
+      <div class="destination" id="destination" hidden>
+        <div class="label">This file will be saved as</div>
+        <div class="path" id="path-display"></div>
+      </div>
+    </div>
+
+    <div class="step locked" id="step-check">
+      <h2><span class="n">2</span> Check it against the project's copy</h2>
+      <div id="check-result"><p class="hint">Choose a file first.</p></div>
+    </div>
+
+    <div class="step locked" id="step-publish">
+      <h2><span class="n">3</span> Describe the change and publish</h2>
+      <label for="message">What changed?</label>
+      <textarea id="message" placeholder="For example: Fixed the tooltip flicker on the dashboard" oninput="updatePublishButton()"></textarea>
+      <p class="hint">This note is saved with the file, so anyone can later see why it changed.</p>
+      <label class="check"><input type="checkbox" id="add-changelog" checked> Add this note to the project's changelog</label>
+      <label class="check" id="live-wrap" hidden><input type="checkbox" id="update-live" checked> <span id="live-label">Also update the live site</span></label>
+      <div class="row">
+        <button class="btn primary" id="publish-btn" disabled onclick="publish()">Publish</button>
+      </div>
+      <div id="publish-result"></div>
+    </div>
+  </section>
+
+  <!-- ============ LATEST ============ -->
+  <section class="panel" id="panel-latest" hidden>
+    <div class="step">
+      <h2>The project's current files</h2>
+      <p class="hint" style="margin-top:0">Always start from these, not from a file in your downloads folder. Old downloads are the most common cause of a broken update.</p>
+      <table class="files" id="latest-table"></table>
+    </div>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section class="panel" id="panel-settings" hidden>
+    <div class="step">
+      <h2>Your GitHub token</h2>
+      <label for="token">Token</label>
+      <input type="password" id="token" placeholder="ghp_…" autocomplete="off">
+      <p class="hint">Saved in this browser only. Don't use this page on a shared computer.</p>
+      <p class="hint"><strong>Don't have one?</strong> <a href="https://github.com/settings/tokens/new?scopes=repo&description=STAR+project+publisher" target="_blank" rel="noopener">Create a token here</a>. Tick <strong>repo</strong>, choose an expiry date, click Generate, and paste the token above. GitHub only shows it once.</p>
+    </div>
+
+    <div class="step">
+      <h2>The project</h2>
+      <div class="settings-grid">
+        <div><label for="owner">Organization (or account)</label><input type="text" id="owner" placeholder="root-change"></div>
+        <div><label for="repo">Repository</label><input type="text" id="repo" placeholder="star-drn"></div>
+      </div>
+      <label for="branch">Branch</label>
+      <input type="text" id="branch" placeholder="main">
+      <p class="hint">Leave the branch as "main" unless you've been told otherwise.</p>
+    </div>
+
+    <div class="step">
+      <h2>Live sites</h2>
+      <p class="hint" style="margin-top:0">Where each page is served from today. Leave a name blank if you don't want this tool to update that live site.</p>
+      <label for="live-owner">Account the live sites belong to</label>
+      <input type="text" id="live-owner" placeholder="rootchangeevan">
+      <div class="settings-grid" id="live-repos"></div>
+    </div>
+
+    <div class="row">
+      <button class="btn primary" onclick="saveSettings()">Save and test connection</button>
+      <span id="settings-result" class="hint" style="margin:0"></span>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ------------------------------------------------------------------
+   STAR Project Publisher
+   Saves a file into the project repository through GitHub's API, with
+   a commit message, an optional CHANGELOG line, and an optional update
+   of the matching live GitHub Pages site. Everything runs in this
+   browser; the token never leaves it except to talk to GitHub.
+   ------------------------------------------------------------------ */
+
+// Known places in the project. "match" guesses the destination from the
+// file name, including download copies like "star-dashboard (3).html".
+const DESTINATIONS = [
+  { id: 'dashboard', label: 'Dashboard',                   path: 'apps/star-dashboard/index.html', kind: 'site', download: 'star-dashboard.html',  match: /star-dashboard/i },
+  { id: 'admin',     label: 'Admin panel',                 path: 'apps/admin-panel/index.html',    kind: 'site', download: 'admin-panel.html',     match: /admin-panel/i },
+  { id: 'weekly',    label: 'Weekly form',                 path: 'apps/weekly-form/index.html',    kind: 'site', download: 'crp-drn-weekly-form.html', match: /weekly-form/i },
+  { id: 'crt',       label: 'CRT monthly form',            path: 'apps/crt-monthly-form/index.html', kind: 'site', download: 'crt-monthly-form.html', match: /crt-monthly/i },
+  { id: 'code',      label: 'Apps Script backend (Code.gs)', path: 'backend/apps-script/Code.gs',  kind: 'appsscript', download: 'Code.gs',         match: /apps-script|code\.gs/i },
+  { id: 'bot',       label: 'Chatbot (drn-chat)',          path: 'backend/supabase/functions/drn-chat/index.ts', kind: 'bot', download: 'drn-chat-index.ts', match: /drn-chat/i },
+  { id: 'schema',    label: 'Database definition',         path: 'backend/supabase/schema.sql',    kind: 'file', download: 'schema.sql',           match: /schema.*\.sql$/i },
+  { id: 'changelog', label: 'Changelog',                   path: 'CHANGELOG.md',                    kind: 'file', download: 'CHANGELOG.md',         match: /^changelog/i },
+  { id: 'readme',    label: 'README',                      path: 'README.md',                       kind: 'file', download: 'README.md',            match: /^readme/i },
+  { id: 'other',     label: 'Somewhere else (type the folder and name)', path: '', kind: 'file' },
+];
+
+const DEFAULT_LIVE = { dashboard: '', admin: '', weekly: 'crp-drn-weekly-form-27', crt: 'crt-monthly-form' };
+const SETTINGS_KEY = 'star_publisher_settings';
+const TOKEN_KEY = 'gh_deploy_token';   // same key as the original Pages Deployer, so a saved token is reused
+
+let settings = loadSettings();
+let state = { file: null, text: '', dest: null, path: '', remote: null, canPublish: false, needsConfirm: false };
+
+// ---------- settings ----------
+function loadSettings() {
+  let s = {};
+  try { s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch (e) {}
+  return {
+    token: localStorage.getItem(TOKEN_KEY) || '',
+    owner: s.owner || '',
+    repo: s.repo || 'star-drn',
+    branch: s.branch || 'main',
+    liveOwner: s.liveOwner || 'rootchangeevan',
+    live: Object.assign({}, DEFAULT_LIVE, s.live || {}),
+  };
+}
+function fillSettingsForm() {
+  token.value = settings.token; owner.value = settings.owner; repo.value = settings.repo;
+  branch.value = settings.branch; document.getElementById('live-owner').value = settings.liveOwner;
+  document.getElementById('live-repos').innerHTML = DESTINATIONS.filter(d => d.kind === 'site').map(d =>
+    '<div><label for="live-' + d.id + '">' + d.label + '</label><input type="text" id="live-' + d.id +
+    '" placeholder="not set" value="' + escapeAttr(settings.live[d.id] || '') + '"></div>').join('');
+}
+async function saveSettings() {
+  settings.token = token.value.trim();
+  settings.owner = owner.value.trim();
+  settings.repo = repo.value.trim();
+  settings.branch = branch.value.trim() || 'main';
+  settings.liveOwner = document.getElementById('live-owner').value.trim();
+  DESTINATIONS.filter(d => d.kind === 'site').forEach(d => { settings.live[d.id] = document.getElementById('live-' + d.id).value.trim(); });
+  try {
+    localStorage.setItem(TOKEN_KEY, settings.token);
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ owner: settings.owner, repo: settings.repo, branch: settings.branch, liveOwner: settings.liveOwner, live: settings.live }));
+  } catch (e) {}
+  const out = document.getElementById('settings-result');
+  out.textContent = 'Testing…';
+  const ok = await testConnection();
+  out.textContent = ok ? 'Saved. Connected.' : 'Saved, but the connection didn\'t work. See the message at the top.';
+  if (ok && state.file) runCheck();
+}
+
+// ---------- GitHub API ----------
+class GitHubError extends Error { constructor(status, message) { super(message); this.status = status; } }
+
+async function gh(path, opts = {}) {
+  const res = await fetch('https://api.github.com' + path, {
+    method: opts.method || 'GET',
+    headers: Object.assign({
+      'Authorization': 'Bearer ' + settings.token,
+      'Accept': opts.accept || 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    }, opts.body ? { 'Content-Type': 'application/json' } : {}),
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  if (opts.raw && res.ok) return res.text();
+  let data = null;
+  try { data = await res.json(); } catch (e) {}
+  if (res.status === 404 && opts.allow404) return null;
+  if (!res.ok) throw new GitHubError(res.status, (data && data.message) || ('HTTP ' + res.status));
+  return data;
+}
+
+function explain(err, where) {
+  const s = err.status, m = String(err.message || '');
+  if (s === 401) return 'GitHub didn\'t accept the token. It may be mistyped or expired. Create a new one in Settings.';
+  if (s === 403 && /rate limit/i.test(m)) return 'GitHub is limiting requests for a few minutes. Wait a little and try again.';
+  if (s === 403 && /personal access token \(classic\)|forbids access/i.test(m)) return 'The organization doesn\'t allow this kind of token. An organization owner can allow it in the organization\'s settings, under Personal access tokens.';
+  if (s === 403) return 'The token doesn\'t have permission for ' + where + '. Make sure it has the "repo" box ticked and that your GitHub account can see that repository.';
+  if (s === 404) return 'Couldn\'t find ' + where + '. Check the names in Settings, and that your GitHub account can see it.';
+  if (s === 409 || s === 422) return 'Someone changed this file on GitHub since you checked it. Choose the file again to re-check, then publish.';
+  if (!s) return 'Couldn\'t reach GitHub. Check your internet connection.';
+  return 'GitHub said: ' + m;
+}
+
+const encPath = p => p.split('/').map(encodeURIComponent).join('/');
+function toB64(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function fromB64(b64) {
+  const bin = atob(String(b64).replace(/\s/g, ''));
+  return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+}
+
+// Returns { sha, text } or null if the file doesn't exist yet.
+async function getFile(o, r, path, ref) {
+  const q = '/repos/' + o + '/' + r + '/contents/' + encPath(path) + (ref ? '?ref=' + encodeURIComponent(ref) : '');
+  const meta = await gh(q, { allow404: true });
+  if (!meta) return null;
+  let text;
+  if (meta.content && meta.encoding === 'base64') text = fromB64(meta.content);
+  else text = await gh(q, { accept: 'application/vnd.github.raw+json', raw: true });   // files over 1 MB
+  return { sha: meta.sha, text: text };
+}
+async function putFile(o, r, path, text, message, sha, branchName) {
+  const body = { message: message, content: toB64(text), branch: branchName };
+  if (sha) body.sha = sha;
+  return gh('/repos/' + o + '/' + r + '/contents/' + encPath(path), { method: 'PUT', body: body });
+}
+async function lastChange(path) {
+  const list = await gh('/repos/' + settings.owner + '/' + settings.repo + '/commits?path=' + encodeURIComponent(path) +
+    '&sha=' + encodeURIComponent(settings.branch) + '&per_page=1');
+  if (!list || !list.length) return null;
+  const c = list[0].commit;
+  return { message: c.message.split('\n')[0], who: (c.author && c.author.name) || 'someone', when: new Date(c.author.date) };
+}
+
+async function testConnection() {
+  const dot = document.getElementById('conn-dot'), txt = document.getElementById('conn-text');
+  const where = (settings.owner || '?') + '/' + (settings.repo || '?');
+  if (!settings.token || !settings.owner || !settings.repo) {
+    dot.className = 'dot'; txt.textContent = 'Not connected yet. Fill in Settings.'; return false;
+  }
+  try {
+    const r = await gh('/repos/' + settings.owner + '/' + settings.repo);
+    dot.className = 'dot ok';
+    txt.textContent = 'Connected to ' + r.full_name + (r.private ? ' (private)' : ' (public)');
+    return true;
+  } catch (e) {
+    dot.className = 'dot bad'; txt.textContent = explain(e, where); return false;
+  }
+}
+
+// ---------- publish flow ----------
+function buildDestSelect() {
+  dest.innerHTML = '<option value="">Choose…</option>' +
+    DESTINATIONS.map(d => '<option value="' + d.id + '">' + d.label + (d.path ? '  (' + d.path + ')' : '') + '</option>').join('');
+}
+
+function readText(f) {
+  if (f.text) return f.text();
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsText(f); });
+}
+
+function guessDestination(name) {
+  const hit = DESTINATIONS.find(d => d.match && d.match.test(name));
+  return hit ? hit.id : (/\.md$/i.test(name) ? 'other' : '');
+}
+
+async function handleFile(f) {
+  if (!f) return;
+  state.file = f;
+  state.text = await readText(f);
+  document.getElementById('chosen').textContent = 'Chosen: ' + f.name + ' (' + formatSize(f.size) + ')';
+  const g = guessDestination(f.name);
+  dest.value = g;
+  if (g === 'other' && /\.md$/i.test(f.name) && !customPath.value) customPath.value = 'docs/' + f.name.replace(/\s*\(\d+\)/, '');
+  onDestChange();
+}
+
+function onDestChange() {
+  const d = DESTINATIONS.find(x => x.id === dest.value) || null;
+  state.dest = d;
+  document.getElementById('custom-wrap').hidden = !(d && d.id === 'other');
+  state.path = d ? (d.id === 'other' ? customPath.value.trim().replace(/^\/+/, '') : d.path) : '';
+  const destBox = document.getElementById('destination');
+  if (state.path) {
+    const parts = [settings.repo || 'project'].concat(state.path.split('/'));
+    document.getElementById('path-display').innerHTML = parts.map((p, i) =>
+      '<span class="' + (i === parts.length - 1 ? 'file' : '') + '">' + escapeHtml(p) + '</span>').join('<span class="sep">/</span>');
+    destBox.hidden = false;
+  } else destBox.hidden = true;
+
+  const liveRepo = d && d.kind === 'site' ? settings.live[d.id] : '';
+  const liveWrap = document.getElementById('live-wrap');
+  liveWrap.hidden = !liveRepo;
+  if (liveRepo) document.getElementById('live-label').textContent =
+    'Also update the live site (' + settings.liveOwner.toLowerCase() + '.github.io/' + liveRepo + ')';
+
+  clearTimeout(onDestChange.t);
+  onDestChange.t = setTimeout(runCheck, d && d.id === 'other' ? 500 : 0);
+}
+
+async function runCheck() {
+  const box = document.getElementById('check-result');
+  state.remote = null; state.canPublish = false; state.needsConfirm = false;
+  setLocked('step-check', !(state.file && state.path));
+  setLocked('step-publish', true);
+  document.getElementById('publish-result').innerHTML = '';
+  if (!state.file || !state.path) { box.innerHTML = '<p class="hint">Choose a file and where it goes.</p>'; updatePublishButton(); return; }
+  if (!settings.token || !settings.owner || !settings.repo) {
+    box.innerHTML = notice('err', 'Not connected', 'Fill in your token and the project name in Settings first.'); updatePublishButton(); return;
+  }
+  box.innerHTML = '<p class="hint">Checking the project\'s copy…</p>';
+  try {
+    const remote = await getFile(settings.owner, settings.repo, state.path, settings.branch);
+    state.remote = remote;
+    const known = state.dest && state.dest.id !== 'other';
+    if (!remote) {
+      box.innerHTML = known
+        ? notice('warn', 'The project doesn\'t have this file yet', 'That\'s unusual for ' + state.dest.label + '. If you expected it to be there, check the repository name in Settings. Otherwise, publishing will add it.')
+        : notice('info', 'This will be a new file in the project', 'Nothing is being replaced.');
+      state.canPublish = true;
+    } else {
+      const cmp = compareText(remote.text, state.text);
+      let info = '';
+      try {
+        const lc = await lastChange(state.path);
+        if (lc) info = '<p class="hint">The project\'s copy was last changed ' + timeAgo(lc.when) + ' by ' + escapeHtml(lc.who) + ': "' + escapeHtml(lc.message) + '"</p>';
+      } catch (e) {}
+      if (cmp.identical) {
+        box.innerHTML = notice('ok', 'Already up to date', 'This file is exactly the same as the project\'s copy, so there\'s nothing to publish.') + info;
+      } else {
+        const counts = '<div class="counts">Compared with the project\'s copy: <span class="add">' + cmp.added + ' line' + (cmp.added === 1 ? '' : 's') +
+          ' added or changed</span>, <span class="rem">' + cmp.removed + ' line' + (cmp.removed === 1 ? '' : 's') + ' removed or changed</span>.</div>';
+        if (cmp.suspicious) {
+          state.needsConfirm = true;
+          box.innerHTML = notice('warn', 'This file is missing a lot of what\'s in the project\'s copy',
+            'That often means it\'s an older download, or the wrong file. Use <em>Get the latest copy</em> to start from the current version, and make your change there.') + counts + info +
+            '<label class="check"><input type="checkbox" id="confirm-big" onchange="updatePublishButton()"> I\'ve checked. This is the right file and the removals are intended.</label>';
+        } else {
+          box.innerHTML = notice('ok', 'Looks like an update of the project\'s copy', '') + counts + info;
+        }
+        state.canPublish = true;
+      }
+    }
+  } catch (e) {
+    box.innerHTML = notice('err', 'Couldn\'t check the project', explain(e, settings.owner + '/' + settings.repo));
+  }
+  setLocked('step-publish', !state.canPublish);
+  updatePublishButton();
+}
+
+// Line-by-line comparison that ignores order (fast on large files).
+function compareText(oldText, newText) {
+  const norm = t => t.replace(/\r\n/g, '\n');
+  const a = norm(oldText), b = norm(newText);
+  if (a === b) return { identical: true, added: 0, removed: 0, suspicious: false };
+  const count = lines => { const m = new Map(); lines.forEach(l => m.set(l, (m.get(l) || 0) + 1)); return m; };
+  const al = a.split('\n'), bl = b.split('\n');
+  const am = count(al), bm = count(bl);
+  let removed = 0, added = 0;
+  am.forEach((n, l) => { removed += Math.max(0, n - (bm.get(l) || 0)); });
+  bm.forEach((n, l) => { added += Math.max(0, n - (am.get(l) || 0)); });
+  const suspicious = al.length > 20 && (removed > al.length * 0.25 || b.length < a.length * 0.8);
+  return { identical: false, added: added, removed: removed, suspicious: suspicious };
+}
+
+function updatePublishButton() {
+  const msgOk = message.value.trim().length >= 3;
+  const confirmOk = !state.needsConfirm || (document.getElementById('confirm-big') || {}).checked;
+  document.getElementById('publish-btn').disabled = !(state.canPublish && msgOk && confirmOk);
+}
+
+async function publish() {
+  const btn = document.getElementById('publish-btn');
+  btn.disabled = true;
+  const out = document.getElementById('publish-result');
+  const msg = message.value.trim();
+  const d = state.dest;
+  const liveRepo = d && d.kind === 'site' && settings.live[d.id] && document.getElementById('update-live').checked ? settings.live[d.id] : '';
+  const doChangelog = document.getElementById('add-changelog').checked && state.path !== 'CHANGELOG.md';
+  const steps = [{ key: 'save', text: 'Save to the project' }];
+  if (doChangelog) steps.push({ key: 'log', text: 'Add the note to the changelog' });
+  if (liveRepo) steps.push({ key: 'live', text: 'Update the live site' });
+  const render = () => {
+    out.innerHTML = '<ol class="progress">' + steps.map(s => '<li><span class="s">' +
+      ({ wait: '○', run: '…', ok: '✓', err: '✕', skip: '–' }[s.status || 'wait']) + '</span><span>' + s.text +
+      (s.detail ? '<br><span class="hint">' + s.detail + '</span>' : '') + '</span></li>').join('') + '</ol>';
+  };
+  const step = (key, status, detail) => { const s = steps.find(x => x.key === key); s.status = status; if (detail !== undefined) s.detail = detail; render(); };
+  render();
+
+  // 1. Save the file to the project
+  step('save', 'run');
+  let fileUrl = '';
+  try {
+    const res = await putFile(settings.owner, settings.repo, state.path, state.text, msg, state.remote && state.remote.sha, settings.branch);
+    fileUrl = res && res.content ? res.content.html_url : '';
+    step('save', 'ok', fileUrl ? '<a href="' + fileUrl + '" target="_blank" rel="noopener">See it on GitHub</a>' : '');
+  } catch (e) {
+    step('save', 'err', escapeHtml(explain(e, settings.owner + '/' + settings.repo)));
+    steps.filter(s => s.key !== 'save').forEach(s => step(s.key, 'skip', 'Skipped because the save didn\'t go through.'));
+    btn.disabled = false; return;
+  }
+
+  // 2. Live site (before the changelog, so the changelog can say whether it's live)
+  let liveOk = false, liveUrl = '';
+  if (liveRepo) {
+    step('live', 'run');
+    const where = settings.liveOwner + '/' + liveRepo;
+    try {
+      const info = await gh('/repos/' + settings.liveOwner + '/' + liveRepo);
+      const cur = await getFile(settings.liveOwner, liveRepo, 'index.html', info.default_branch);
+      await putFile(settings.liveOwner, liveRepo, 'index.html', state.text, msg, cur && cur.sha, info.default_branch);
+      liveUrl = 'https://' + settings.liveOwner.toLowerCase() + '.github.io/' + liveRepo + '/';
+      liveOk = true;
+      step('live', 'ok', 'Updated. It usually shows up within a minute or two at <a href="' + liveUrl + '" target="_blank" rel="noopener">' + liveUrl + '</a>. Refresh with Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows).');
+    } catch (e) {
+      step('live', 'err', escapeHtml(explain(e, where)) + ' The project copy was saved, so you can update the live site separately.');
+    }
+  }
+
+  // 3. Changelog line
+  if (doChangelog) {
+    step('log', 'run');
+    try {
+      const cl = await getFile(settings.owner, settings.repo, 'CHANGELOG.md', settings.branch);
+      const line = '- `' + state.path + '`: ' + msg.replace(/\s*\n\s*/g, ' ') +
+        (d && d.kind === 'site' ? (liveOk ? ' (Live.)' : ' (Not yet live.)') :
+         d && (d.kind === 'appsscript' || d.kind === 'bot') ? ' (Not yet live: needs pasting in.)' : '');
+      const updated = addChangelogLine(cl ? cl.text : '# Changelog\n', line, todayISO());
+      await putFile(settings.owner, settings.repo, 'CHANGELOG.md', updated, 'Changelog: ' + msg.split('\n')[0], cl && cl.sha, settings.branch);
+      step('log', 'ok');
+    } catch (e) {
+      step('log', 'err', escapeHtml(explain(e, 'CHANGELOG.md')) + ' Add the line by hand later.');
+    }
+  }
+
+  out.insertAdjacentHTML('beforeend', nextSteps(d, liveRepo, liveOk));
+  toast('Published');
+  // Re-check, so a second click can't publish against an out-of-date copy.
+  state.canPublish = false; updatePublishButton();
+  setTimeout(() => { runCheckQuiet(); }, 300);
+}
+
+async function runCheckQuiet() {
+  try { state.remote = await getFile(settings.owner, settings.repo, state.path, settings.branch); } catch (e) {}
+}
+
+function nextSteps(d, liveRepo, liveOk) {
+  if (!d) return '';
+  if (d.kind === 'appsscript') return '<div class="next"><strong>One more step: it isn\'t live until it\'s in Apps Script.</strong><ol>' +
+    '<li><button class="btn" onclick="copyText(state.text)">Copy Code.gs</button></li>' +
+    '<li>Open the STAR Dashboard Data Google Sheet → Extensions → Apps Script.</li>' +
+    '<li>Click inside Code.gs, select all, paste, and save.</li>' +
+    '<li>Deploy → Manage deployments → pencil icon on the existing Web app → Version: New version → Deploy. Not "New deployment", which would change the address.</li>' +
+    '<li>Check the admin panel\'s System Health card.</li></ol></div>';
+  if (d.kind === 'bot') return '<div class="next"><strong>One more step: it isn\'t live until it\'s in Supabase.</strong><ol>' +
+    '<li><button class="btn" onclick="copyText(state.text)">Copy the bot code</button></li>' +
+    '<li>Supabase → Edge Functions → drn-chat → open the code editor.</li>' +
+    '<li>Select all, paste, and deploy.</li>' +
+    '<li>Ask the bot one question that uses the change.</li></ol></div>';
+  if (d.kind === 'site' && !liveRepo) return '<div class="next"><strong>The live site wasn\'t updated.</strong> ' +
+    (settings.live[d.id] ? 'You unticked it.' : 'There\'s no live site set for ' + d.label + ' in Settings.') +
+    ' The project copy is saved; update the live site when you\'re ready.</div>';
+  return '';
+}
+
+function addChangelogLine(text, line, dateStr) {
+  const heading = '## ' + dateStr;
+  const at = text.indexOf('\n' + heading + '\n');
+  if (at > -1) {
+    let pos = at + 1 + heading.length + 1;
+    if (text[pos] === '\n') pos++;
+    return text.slice(0, pos) + line + '\n' + text.slice(pos);
+  }
+  const block = heading + '\n\n' + line + '\n\n';
+  const firstDated = text.search(/\n## \d{4}-\d{2}-\d{2}/);
+  if (firstDated > -1) return text.slice(0, firstDated + 1) + block + text.slice(firstDated + 1);
+  return text.replace(/\s*$/, '\n\n') + block;
+}
+
+// ---------- latest copies ----------
+async function loadLatest() {
+  const table = document.getElementById('latest-table');
+  if (!settings.token || !settings.owner || !settings.repo) {
+    table.innerHTML = '<tr><td>' + notice('err', 'Not connected', 'Fill in your token and the project name in Settings first.') + '</td></tr>'; return;
+  }
+  const list = DESTINATIONS.filter(d => d.path);
+  table.innerHTML = list.map(d => '<tr><td><div class="name">' + d.label + '</div><div class="meta">' + d.path +
+    '</div><div class="meta" id="lc-' + d.id + '">Checking…</div></td><td class="actions">' +
+    '<button class="btn" onclick="fetchLatest(\'' + d.id + '\', \'copy\')">Copy</button> ' +
+    '<button class="btn" onclick="fetchLatest(\'' + d.id + '\', \'download\')">Download</button></td></tr>').join('');
+  for (const d of list) {
+    const cell = document.getElementById('lc-' + d.id);
+    try {
+      const lc = await lastChange(d.path);
+      cell.textContent = lc ? 'Last changed ' + timeAgo(lc.when) + ' by ' + lc.who + ': "' + lc.message + '"' : 'Not in the project yet';
+    } catch (e) { cell.textContent = explain(e, settings.owner + '/' + settings.repo); }
+  }
+}
+
+async function fetchLatest(id, mode) {
+  const d = DESTINATIONS.find(x => x.id === id);
+  try {
+    const f = await getFile(settings.owner, settings.repo, d.path, settings.branch);
+    if (!f) { toast('That file isn\'t in the project yet'); return; }
+    if (mode === 'copy') copyText(f.text);
+    else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([f.text], { type: 'text/plain' }));
+      a.download = d.download || d.path.split('/').pop();
+      document.body.appendChild(a); a.click(); a.remove();
+      toast('Downloaded ' + a.download);
+    }
+  } catch (e) { toast(explain(e, d.path)); }
+}
+
+// ---------- small helpers ----------
+const $ = id => document.getElementById(id);
+const dest = $('dest'), customPath = $('custom-path'), message = $('message');
+const token = $('token'), owner = $('owner'), repo = $('repo'), branch = $('branch');
+
+function showTab(name) {
+  ['publish', 'latest', 'settings'].forEach(t => {
+    $('panel-' + t).hidden = t !== name;
+    $('tab-' + t).setAttribute('aria-selected', String(t === name));
+  });
+  if (name === 'latest') loadLatest();
+  if (name === 'settings') fillSettingsForm();
+}
+function setLocked(id, locked) { $(id).classList.toggle('locked', locked); }
+function notice(kind, title, body) { return '<div class="notice ' + kind + '"><strong>' + title + '</strong>' + body + '</div>'; }
+function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function escapeAttr(s) { return escapeHtml(s).replace(/'/g, '&#39;'); }
+function formatSize(n) { return n < 1024 ? n + ' bytes' : n < 1048576 ? Math.round(n / 1024) + ' KB' : (n / 1048576).toFixed(1) + ' MB'; }
+function todayISO() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function timeAgo(d) {
+  const s = (Date.now() - d.getTime()) / 1000;
+  if (s < 90) return 'just now';
+  if (s < 3600) return Math.round(s / 60) + ' minutes ago';
+  if (s < 86400) return Math.round(s / 3600) + ' hours ago';
+  if (s < 86400 * 14) return Math.round(s / 86400) + ' days ago';
+  return 'on ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); }
+  catch (e) { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+  toast('Copied. Paste it where it needs to go.');
+}
+function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 2600); }
+
+// ---------- wire up ----------
+const drop = $('drop'), fileInput = $('file-input');
+fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => { if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+
+buildDestSelect();
+fillSettingsForm();
+if (!settings.token || !settings.owner) showTab('settings'); else testConnection();
+</script>
+</body>
+</html>
